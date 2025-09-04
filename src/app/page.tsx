@@ -76,7 +76,8 @@ export default function HomePage() {
             if (!v) return;
             const f = v.filter||{};
             setQ(f.q||''); setSourceId(f.sources?.[0]||''); setStatus(f.status||'');
-            setFrom(f.from ? new Date(Date.now() - (f.fromHours||0)*3600*1000).toISOString().slice(0,16) : '');
+            const h = Number(f.fromHours||0);
+            setFrom(h ? new Date(Date.now() - h*3600*1000).toISOString().slice(0,16) : '');
             setTo(''); setOffset(0);
           }} className="px-2 py-1 rounded border border-gray-300 bg-white text-gray-900">
             <option value="">Select view</option>
