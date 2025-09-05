@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
   const lang = searchParams.get('lang') || undefined;
   const from = searchParams.get('from');
   const to = searchParams.get('to');
+  const categorySlug = searchParams.get('categorySlug') || undefined;
 
   const where: any = {};
   if (sourceId) where.sourceId = sourceId;
@@ -21,7 +22,24 @@ export async function GET(req: NextRequest) {
     if (from) where.publishedAt.gte = new Date(from);
     if (to) where.publishedAt.lte = new Date(to);
   }
-  if (q) where.title = { contains: q, mode: 'insensitive' };
+  if (q) {
+    where.AND = [
+      ...(where.AND || []),
+      {
+        OR: [
+          { title: { contains: q, mode: 'insensitive' } },
+          { summary: { contains: q, mode: 'insensitive' } },
+          { url: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+    ];
+  }
+  if (categorySlug) {
+    where.AND = [
+      ...(where.AND || []),
+      { source: { categories: { some: { slug: categorySlug } } } },
+    ];
+  }
 
   const [items, total] = await Promise.all([
     prisma.article.findMany({
