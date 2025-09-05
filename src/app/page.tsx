@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 type Source = { id: string; name: string };
 type Article = { id: string; title: string; canonicalUrl: string; publishedAt?: string; status: string; source: Source };
+type Category = { id: string; name: string; slug: string };
 
 export default function HomePage() {
   const [sources, setSources] = useState<Source[]>([]);
@@ -15,12 +16,21 @@ export default function HomePage() {
   const [to, setTo] = useState('');
   const [views, setViews] = useState<{ id: string; name: string; filter: any }[]>([]);
   const [offset, setOffset] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categorySlug, setCategorySlug] = useState('');
   const limit = 50;
   const selectedRowRef = useRef<number>(0);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function loadSources() {
     const res = await fetch('/api/sources');
     setSources(await res.json());
+  }
+  async function loadCategories() {
+    const res = await fetch('/api/categories');
+    setCategories(await res.json());
   }
   async function load() {
     const sp = new URLSearchParams({ limit: String(limit), offset: String(offset) });
@@ -29,14 +39,61 @@ export default function HomePage() {
     if (status) sp.set('status', status);
     if (from) sp.set('from', from);
     if (to) sp.set('to', to);
-    const res = await fetch(`/api/articles?${sp.toString()}`);
-    const data = await res.json();
-    setItems(data.items);
-    setTotal(data.total);
+    if (categorySlug) sp.set('categorySlug', categorySlug);
+    try {
+      setIsLoading(true);
+      setError(null);
+      const res = await fetch(`/api/articles?${sp.toString()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setItems(data.items);
+      setTotal(data.total);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load');
+    } finally {
+      setIsLoading(false);
+    }
   }
 
-  useEffect(() => { loadSources(); (async ()=>{ const res = await fetch('/api/views'); const v = await res.json(); setViews(v.map((x:any)=>({ ...x, filter: x.filter ? JSON.parse(x.filter) : {} }))); })(); }, []);
-  useEffect(() => { load(); }, [q, sourceId, status, from, to, offset]);
+  useEffect(() => {
+    loadSources();
+    loadCategories();
+    (async ()=>{ const res = await fetch('/api/views'); const v = await res.json(); setViews(v.map((x:any)=>({ ...x, filter: x.filter ? JSON.parse(x.filter) : {} }))); })();
+    // Initialize from URL once
+    const usp = new URLSearchParams(window.location.search);
+    const initQ = usp.get('q') || '';
+    const initSourceId = usp.get('sourceId') || '';
+    const initStatus = usp.get('status') || '';
+    const initFrom = usp.get('from') || '';
+    const initTo = usp.get('to') || '';
+    const initCategory = usp.get('categorySlug') || '';
+    if (initQ) setQ(initQ);
+    if (initSourceId) setSourceId(initSourceId);
+    if (initStatus) setStatus(initStatus);
+    if (initFrom) setFrom(initFrom);
+    if (initTo) setTo(initTo);
+    if (initCategory) setCategorySlug(initCategory);
+  }, []);
+
+  // Debounce q changes, and keep URL in sync without feedback loops
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      const usp = new URLSearchParams(window.location.search);
+      const prevQ = usp.get('q') || '';
+      if ((q || '') !== prevQ) {
+        if (q) usp.set('q', q); else usp.delete('q');
+        const next = `${window.location.pathname}?${usp.toString()}`.replace(/\?$/, '');
+        window.history.replaceState(null, '', next);
+      }
+      load();
+    }, 300);
+    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, offset]);
+
+  // Immediate reload for non-debounced filters
+  useEffect(() => { load(); }, [sourceId, status, from, to, categorySlug]);
 
   const totalPages = useMemo(() => Math.ceil(total / limit) || 1, [total]);
 
@@ -63,7 +120,8 @@ export default function HomePage() {
 
   async function updateStatus(id: string, status: string) {
     await fetch(`/api/articles/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) });
-    load();
+    // Optimistic local update to avoid extra fetch
+    setItems(prev => prev.map(a => a.id === id ? { ...a, status } : a));
   }
 
   return (
@@ -93,6 +151,13 @@ export default function HomePage() {
           <select value={sourceId} onChange={(e) => { setOffset(0); setSourceId(e.target.value); }} className="px-2 py-1 rounded border border-gray-300 bg-white text-gray-900">
             <option value="">All</option>
             {sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-col">
+          <label className="text-xs text-gray-500">Category</label>
+          <select value={categorySlug} onChange={(e)=>{ setOffset(0); setCategorySlug(e.target.value); const usp = new URLSearchParams(window.location.search); if (e.target.value) usp.set('categorySlug', e.target.value); else usp.delete('categorySlug'); window.history.replaceState(null,'',`${window.location.pathname}?${usp.toString()}`.replace(/\?$/, '')); }} className="px-2 py-1 rounded border border-gray-300 bg-white text-gray-900">
+            <option value="">All</option>
+            {categories.map(c=> <option key={c.id} value={c.slug}>{c.name}</option>)}
           </select>
         </div>
         <div className="flex flex-col">
@@ -139,6 +204,7 @@ export default function HomePage() {
                   <button className="px-2 py-1 border rounded" onClick={() => updateStatus(a.id, 'SAVED')}>Save</button>
                   <button className="px-2 py-1 border rounded" onClick={() => updateStatus(a.id, 'PINNED')}>Pin</button>
                   <button className="px-2 py-1 border rounded" onClick={() => updateStatus(a.id, 'READ')}>Read</button>
+                  <button className="px-2 py-1 border rounded" onClick={() => updateStatus(a.id, 'UNREAD')}>Unread</button>
                 </td>
               </tr>
             ))}
@@ -150,6 +216,8 @@ export default function HomePage() {
         <button disabled={offset===0} className="px-2 py-1 border rounded disabled:opacity-50" onClick={() => setOffset(Math.max(0, offset - limit))}>Prev</button>
         <span className="text-sm text-gray-600">Page {Math.floor(offset/limit)+1} / {totalPages}</span>
         <button disabled={offset+limit >= total} className="px-2 py-1 border rounded disabled:opacity-50" onClick={() => setOffset(offset + limit)}>Next</button>
+        {isLoading && <span className="text-xs text-gray-500">Loading…</span>}
+        {error && <span className="text-xs text-red-600">{error}</span>}
       </div>
     </div>
   );
