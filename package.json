@@ -10,12 +10,16 @@
     "prisma:dev": "prisma migrate dev --name init",
     "prisma:seed": "tsx ./scripts/seed.ts",
     "fetch:all": "tsx ./scripts/fetch-all.ts",
-    "test:fetch": "tsx ./scripts/test-fetch.ts"
+    "test:fetch": "tsx ./scripts/test-fetch.ts",
+    "test:run-all": "tsx ./scripts/test-run-all.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.15.0",
+    "bullmq": "^5.0.0",
     "cheerio": "^1.0.0",
     "date-fns": "^3.6.0",
+    "ioredis": "^5.3.2",
+    "jsdom": "^24.0.0",
     "next": "^14.2.7",
     "node-cron": "^3.0.3",
     "p-limit": "^6.1.0",
@@ -25,6 +29,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/jsdom": "^21.1.6",
     "@types/node": "^20.14.12",
     "@types/node-cron": "^3.0.11",
     "@types/react": "^18.3.3",

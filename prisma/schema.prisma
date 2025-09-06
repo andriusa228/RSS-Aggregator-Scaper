@@ -1,5 +1,5 @@
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -17,10 +17,13 @@ model Source {
   etag         String?
   lastModified DateTime?
   lastFetched  DateTime?
+  // Beta: Full-text extraction settings
+  extractFullText Boolean @default(true)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   articles     Article[]
   categories   Category[] @relation("SourcesOnCategories")
+  ingestLogs   IngestLog[]
 }
 
 model Article {
@@ -38,6 +41,11 @@ model Article {
   status       String        @default("UNREAD")
   openedAt     DateTime?
   score        Int?
+  // Beta: Full-text content
+  content      String?       // Pilnas straipsnio tekstas
+  extractedAt  DateTime?     // Kada buvo ištrauktas pilnas tekstas
+  // Beta: Duplicate detection enhancement
+  urlHash      String?       @unique // Papildomas hash URL + title kombinacijai
 }
 
 model SavedView {
@@ -55,4 +63,17 @@ model Category {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   sources   Source[] @relation("SourcesOnCategories")
+}
+
+// Beta: Monitoring and analytics
+model IngestLog {
+  id          String   @id @default(cuid())
+  sourceId    String
+  status      String   // SUCCESS, ERROR, PARTIAL
+  errorMessage String?
+  itemsFound  Int      @default(0)
+  itemsCreated Int     @default(0)
+  duration    Int?     // milliseconds
+  createdAt   DateTime @default(now())
+  source      Source   @relation(fields: [sourceId], references: [id])
 }

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
+import { RunAllButton } from '@/components/RunAllButton';
 
 type Category = { id: string; name: string; slug: string };
 type Source = { id: string; name: string; url: string; type: 'RSS'|'HTML'|'AUTO'; enabled: boolean; rules?: any; categories?: Category[] };
@@ -54,21 +55,54 @@ export default function AdminSourcesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end gap-2">
-        <div className="flex flex-col">
-          <label className="text-xs text-gray-500">Admin Token</label>
-          <input value={adminToken} onChange={(e)=>setAdminToken(e.target.value)} className="px-2 py-1 rounded border" placeholder="paste ADMIN_TOKEN" />
-        </div>
-        <button onClick={()=>runNow()} className="px-3 py-1 border rounded">Run All Now</button>
+      <div className="space-y-4">
+        {/* Admin Token */}
         <div className="flex items-end gap-2">
           <div className="flex flex-col">
-            <label className="text-xs text-gray-500">Category</label>
-            <select value={selectedCategorySlug} onChange={(e)=>setSelectedCategorySlug(e.target.value)} className="px-2 py-1 rounded border">
-              <option value="">All</option>
-              {categories.map(c=> <option key={c.id} value={c.slug}>{c.name}</option>)}
-            </select>
+            <label className="text-xs text-gray-500">Admin Token</label>
+            <input 
+              value={adminToken} 
+              onChange={(e)=>setAdminToken(e.target.value)} 
+              className="px-2 py-1 rounded border" 
+              placeholder="paste ADMIN_TOKEN" 
+            />
           </div>
-          <button onClick={runByCategory} className="px-3 py-1 border rounded">Run by Category</button>
+        </div>
+
+        {/* Run All Controls */}
+        <div className="p-4 border rounded-lg bg-gray-50">
+          <h3 className="font-semibold mb-3">Bulk Operations</h3>
+          <div className="space-y-3">
+            {/* New Run All Button */}
+            <div>
+              <label className="text-sm font-medium text-gray-700">Run All Sources</label>
+              <div className="mt-1">
+                <RunAllButton 
+                  adminToken={adminToken}
+                  className="mb-2"
+                />
+              </div>
+            </div>
+
+            {/* Legacy buttons */}
+            <div className="flex items-end gap-2">
+              <button onClick={()=>runNow()} className="px-3 py-1 border rounded text-sm">Legacy: Run All Now</button>
+              <div className="flex items-end gap-2">
+                <div className="flex flex-col">
+                  <label className="text-xs text-gray-500">Category</label>
+                  <select 
+                    value={selectedCategorySlug} 
+                    onChange={(e)=>setSelectedCategorySlug(e.target.value)} 
+                    className="px-2 py-1 rounded border"
+                  >
+                    <option value="">All</option>
+                    {categories.map(c=> <option key={c.id} value={c.slug}>{c.name}</option>)}
+                  </select>
+                </div>
+                <button onClick={runByCategory} className="px-3 py-1 border rounded text-sm">Run by Category</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
